@@ -6,11 +6,15 @@ class Document:
         self.url=url
         self.texte=texte
 
-    def afficher(self):      
-        print(f" le titre du document est : {self.titre},l'auteur est:{self.auteur}, la date: {self.date},l'url :{self.url} et le text correspodant est :            {self.texte}")           
+    def afficher(self):
+        print("Titre :", self.titre)
+        print("Auteur :", self.auteur)
+        print("Date :", self.date)
+        print("URL :", self.url)
+        print("Texte :", self.texte)
 
     def __str__(self):       
-        return f" {self.titre}"
+        return self.titre 
 
     
 
