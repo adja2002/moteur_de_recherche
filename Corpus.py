@@ -1,5 +1,6 @@
 from Author import Author
-from Document import Document
+from Document import Document, HackerNewsDocument, ArxivDocument
+import json
 import pandas as pd
 
 class Corpus:
@@ -71,14 +72,28 @@ class Corpus:
 
         for id_doc, doc in self.id2doc.items():
 
-            donnees.append({
+            # Informations communes
+            ligne = {
                 "id": id_doc,
+                "type": doc.getType(),
                 "titre": doc.titre,
                 "auteur": doc.auteur,
                 "date": doc.date,
                 "url": doc.url,
-                "texte": doc.texte
-            })
+                "texte": doc.texte,
+                "nb_commentaires": None,
+                "co_auteurs": None
+            }
+
+            # Informations spécifiques à Hacker News
+            if isinstance(doc, HackerNewsDocument):
+                ligne["nb_commentaires"] = doc.nb_commentaires
+
+            # Informations spécifiques à Arxiv
+            elif isinstance(doc, ArxivDocument):
+                ligne["co_auteurs"] = json.dumps(doc.co_auteurs)
+
+            donnees.append(ligne)
 
         df = pd.DataFrame(donnees)
 
@@ -96,13 +111,41 @@ class Corpus:
 
         for _, ligne in df.iterrows():
 
-            doc = Document(
-                ligne["titre"],
-                ligne["auteur"],
-                ligne["date"],
-                ligne["url"],
-                ligne["texte"]
-            )
+            type_doc = ligne["type"]
+
+            if type_doc == "Hacker News":
+
+                doc = HackerNewsDocument(
+                    ligne["titre"],
+                    ligne["auteur"],
+                    ligne["date"],
+                    ligne["url"],
+                    ligne["texte"],
+                    int(ligne["nb_commentaires"])
+                )
+
+            elif type_doc == "Arxiv":
+
+                co_auteurs = json.loads(ligne["co_auteurs"])
+
+                doc = ArxivDocument(
+                    ligne["titre"],
+                    ligne["auteur"],
+                    ligne["date"],
+                    ligne["url"],
+                    ligne["texte"],
+                    co_auteurs
+                )
+
+            else:
+
+                doc = Document(
+                    ligne["titre"],
+                    ligne["auteur"],
+                    ligne["date"],
+                    ligne["url"],
+                    ligne["texte"]
+                )
 
             corpus.add_document(doc)
 
