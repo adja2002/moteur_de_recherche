@@ -2,10 +2,34 @@ from Author import Author
 from Document import Document, HackerNewsDocument, ArxivDocument
 import json
 import pandas as pd
+from DocumentFactory import DocumentFactory
 
 class Corpus:
+
+    # _instance garde l'unique corpus du programme (vide au départ)
+    _instance = None
+
+    # Crée le corpus au premier appel, puis renvoie toujours ce même corpus
+    def __new__(cls, *args, **kwargs):
+        if cls._instance is None:
+            cls._instance = super().__new__(cls)
+            cls._instance._initialise = False
+        return cls._instance
+
+          # Remplit le corpus seulement au premier appel, pour ne pas effacer ses documents
     def __init__(self,nom):
+      
+        if self._initialise:
+            return
+        self._initialise = True
         self.nom = nom
+        self.authors = {}
+        self.id2doc = {}
+        self.ndoc = 0
+        self.naut = 0
+
+       # Remet le corpus à zéro, pour que load ne charge pas les documents en double (Singleton)
+    def vider(self):
         self.authors = {}
         self.id2doc = {}
         self.ndoc = 0
@@ -108,45 +132,19 @@ class Corpus:
         df = pd.read_csv(chemin, sep="\t")
 
         corpus = cls("Corpus chargé")
+        # Singleton : on vide le corpus existant pour ne pas charger les documents en double
+        corpus.vider()
 
+         # Recrée chaque document avec la Factory selon sa colonne "type".
         for _, ligne in df.iterrows():
-
-            type_doc = ligne["type"]
-
-            if type_doc == "Hacker News":
-
-                doc = HackerNewsDocument(
-                    ligne["titre"],
-                    ligne["auteur"],
-                    ligne["date"],
-                    ligne["url"],
-                    ligne["texte"],
-                    int(ligne["nb_commentaires"])
-                )
-
-            elif type_doc == "Arxiv":
-
-                co_auteurs = json.loads(ligne["co_auteurs"])
-
-                doc = ArxivDocument(
-                    ligne["titre"],
-                    ligne["auteur"],
-                    ligne["date"],
-                    ligne["url"],
-                    ligne["texte"],
-                    co_auteurs
-                )
-
-            else:
-
-                doc = Document(
-                    ligne["titre"],
-                    ligne["auteur"],
-                    ligne["date"],
-                    ligne["url"],
-                    ligne["texte"]
-                )
-
+            nb = ligne["nb_commentaires"]
+            co = ligne["co_auteurs"]
+            doc = DocumentFactory.creer(
+                ligne["type"], ligne["titre"], ligne["auteur"],
+                ligne["date"], ligne["url"], ligne["texte"],
+                nb_commentaires=0 if pd.isna(nb) else int(nb),
+                co_auteurs=[] if pd.isna(co) else json.loads(co)
+            )
             corpus.add_document(doc)
-
+                
         return corpus

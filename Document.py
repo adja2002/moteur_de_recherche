@@ -19,6 +19,10 @@ class Document:
     def __str__(self):       
         return self.titre 
 
+    # Renvoie le type par défaut, redéfini dans les classes filles.
+    def getType(self):
+        return "Document"
+
 
 # Classe Fille
 class HackerNewsDocument(Document):
