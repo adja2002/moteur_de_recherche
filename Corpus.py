@@ -1,8 +1,10 @@
 from Author import Author
 from Document import Document, HackerNewsDocument, ArxivDocument
 import json
+import re
 import pandas as pd
 from DocumentFactory import DocumentFactory
+
 
 class Corpus:
 
@@ -16,9 +18,8 @@ class Corpus:
             cls._instance._initialise = False
         return cls._instance
 
-          # Remplit le corpus seulement au premier appel, pour ne pas effacer ses documents
-    def __init__(self,nom):
-      
+    # Remplit le corpus seulement au premier appel, pour ne pas effacer ses documents
+    def __init__(self, nom):
         if self._initialise:
             return
         self._initialise = True
@@ -27,13 +28,15 @@ class Corpus:
         self.id2doc = {}
         self.ndoc = 0
         self.naut = 0
+        self._chaine = None
 
-       # Remet le corpus à zéro, pour que load ne charge pas les documents en double (Singleton)
+    # Remet le corpus à zéro, pour que load ne charge pas les documents en double (Singleton)
     def vider(self):
         self.authors = {}
         self.id2doc = {}
         self.ndoc = 0
         self.naut = 0
+        self._chaine = None
 
     def add_document(self, doc):
         id_doc = self.ndoc
@@ -43,7 +46,7 @@ class Corpus:
 
         # Vérifier si l'auteur existe déja
         if doc.auteur not in self.authors:
-            self.authors[doc.auteur] =  Author(doc.auteur)
+            self.authors[doc.auteur] = Author(doc.auteur)
 
         # Ajouter le document a la production de l'auteur
         self.authors[doc.auteur].add(id_doc, doc)
@@ -51,6 +54,9 @@ class Corpus:
         # Actualiser les compteurs
         self.ndoc = len(self.id2doc)
         self.naut = len(self.authors)
+
+        # La grande chaîne n'est plus à jour : elle sera reconstruite au prochain search
+        self._chaine = None
 
     # Afficher les docs triés par date
     def afficher_par_date(self, n):
@@ -80,6 +86,26 @@ class Corpus:
         for id_doc, doc in documents[:n]:
             doc.afficher()
             print()
+
+    # TD6 1.1 : renvoie les passages du corpus qui contiennent le mot-clé.
+    def search(self, mot_cle, taille=30):
+        if self._chaine is None:
+            self._chaine = " ".join(doc.texte for doc in self.id2doc.values())
+
+        motif = re.compile(".{0,%d}%s.{0,%d}" % (taille, re.escape(mot_cle), taille),
+                           re.IGNORECASE)
+        return motif.findall(self._chaine)
+
+    # TD6 1.2 : renvoie un tableau (contexte gauche, motif trouvé, contexte droit) pour l'expression.
+    def concorde(self, expression, taille=30):
+        if self._chaine is None:
+            self._chaine = " ".join(doc.texte for doc in self.id2doc.values())
+
+        motif = re.compile("(.{0,%d})(%s)(.{0,%d})" % (taille, expression, taille),
+                           re.IGNORECASE)
+        resultats = motif.findall(self._chaine)
+        return pd.DataFrame(resultats,
+                            columns=["contexte gauche", "motif trouvé", "contexte droit"])
 
     # Représentation du corpus
     def __repr__(self):
@@ -135,7 +161,7 @@ class Corpus:
         # Singleton : on vide le corpus existant pour ne pas charger les documents en double
         corpus.vider()
 
-         # Recrée chaque document avec la Factory selon sa colonne "type".
+        # Recrée chaque document avec la Factory selon sa colonne "type"
         for _, ligne in df.iterrows():
             nb = ligne["nb_commentaires"]
             co = ligne["co_auteurs"]
@@ -146,5 +172,5 @@ class Corpus:
                 co_auteurs=[] if pd.isna(co) else json.loads(co)
             )
             corpus.add_document(doc)
-                
+
         return corpus
